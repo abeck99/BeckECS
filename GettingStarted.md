@@ -8,16 +8,16 @@ The best way to get started is to take a look at the example project. Here's wha
 1.    Make a copy of the "example" subdirectory into the same directory that "EntitySystem" exists in.
 2.    Copy a local waf script to the newly created "example" directory
 3.    Configure waf:
-*        OSX (darwin): CXX=clang++ ./waf configure
-*        Windows: python waf configure --msvc_targets="x86"
+    *        OSX (darwin): CXX=clang++ ./waf configure
+    *        Windows: python waf configure --msvc_targets="x86"
 4.    Resolve any dependencies (protobuf and zmq), and make sure to install the python support to try the python client
 5.    Build:
-*        OSX (darwin): ./waf
-*        Windows: python python waf
+    *        OSX (darwin): ./waf
+    *        Windows: python python waf
 6.    Run:
-*        OSX: ./runExampleGame.sh
-*        Windows: python ConvertJsonToBuf.py saves/example.json saves/example.buf
-*                 build/exampleGame saves/example.buf
+    *        OSX: ./runExampleGame.sh
+    *        Windows: python ConvertJsonToBuf.py saves/example.json saves/example.buf
+        *                 build/exampleGame saves/example.buf
 
 All you will see is log output showing the different tick times.
 
@@ -50,10 +50,14 @@ One great advantage of using a highly data driven approach is we can easily pull
 
 This feature is incompatible with windows, but works very well (as long as the systems are stateless) in *nix systems.
 
-When configuring waf, pass in --dynamic or --dev flags, IE:
+When configuring waf, pass in --dynamic or --dev flags, IE:  
+```
 ./waf configure --dynamic
+```
 -- or, to include debug symbols as well --
+```
 ./waf configure --dev
+```
 
 This will build the systems as dynamic libs. When the server is running, try modifiying a system, it should seemlessly pause the game, recompile the dynamic library, and link it in without any extra effort.
 
