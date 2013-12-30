@@ -1,0 +1,161 @@
+import zmq
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__)))
+sys.path.append(os.path.join(os.path.dirname(__file__), "Messages"))
+
+import protobufHelper
+import basics_pb2
+{% for pyPackage in pyPackages %}
+import {{ pyPackage }}
+{% endfor %}
+
+context = zmq.Context()
+
+useTCP = bool({{ useTCP }})
+
+SOCKETS = {
+    }
+
+INDIVIDUAL_ENTITY_TYPE = 0
+OFFICE_ENTITIY_TYPE = 1
+LOCATION_ENTITY_TYPE = 2
+GOVERNMENT_ENTITY_TYPE = 3
+GLOBAL_ENTITY_TYPE = 4
+ACTION_ENTITY_TYPE = 5
+
+
+PRESTIGE_STAT = 1
+MONEY_STAT = 2
+STAT_NAMES = {
+    PRESTIGE_STAT: "Prestige",
+    MONEY_STAT: "Money",
+}
+
+DAILY_OCCURANCE_TYPE = 1
+WEEKLY_OCCURANCE_TYPE = 2
+MONTHLY_OCCURANCE_TYPE = 3
+OCCURANCE_NAMES = {
+    DAILY_OCCURANCE_TYPE: "Daily",
+    WEEKLY_OCCURANCE_TYPE: "Weekly",
+    MONTHLY_OCCURANCE_TYPE: "Monthly",
+}
+
+def GetStatName(statType):
+    return STAT_NAMES[statType]
+
+def GetOccuranceName(occuranceType):
+    return OCCURANCE_NAMES[occuranceType]
+
+def GetState():
+    msg = basics_pb2.SystemRequest()
+    msg.request = msg.SERIALIZED_STATE
+    socket = SOCKETS["systemRequest"]
+    data = socket.SendProtobuf(msg)
+    systemResponse = basics_pb2.SystemResponse()
+    systemResponse.ParseFromString(data)
+    return systemResponse.state
+
+
+def SetTimeScale(timeScale):
+    msg = basics_pb2.SetTimeScale()
+    msg.timeScale = timeScale
+    socket = SOCKETS["setTimeScale"]
+    data = socket.SendProtobuf(msg)
+    # No current use for this responded data
+
+
+def Shutdown():
+    msg = basics_pb2.SystemRequest()
+    msg.request = msg.SHUT_DOWN
+    socket = SOCKETS["systemRequest"]
+    data = socket.SendProtobuf(msg)
+    # No current use for this responded data
+
+
+# This function overrides anything else set
+# Loglevel is a value 0-5, 5 is nothing logged, 4 is errors only, 3 is gameplay and errors, so on to 0
+def SetLogLevel(logLevel, includeSystems=[], excludeSystems=[]):
+    """
+        This function overrides anything else set
+        Loglevel is a value 0-5, 5 is nothing logged, 4 is errors only, 3 is gameplay and errors, so on to 0
+    """
+    msg = basics_pb2.ChangeLogLevel()
+    msg.logLevel = logLevel
+    msg.includeSystems.extend(includeSystems)
+    msg.excludeSystems.extend(excludeSystems)
+    socket = SOCKETS["setLogLevel"]
+    data = socket.SendProtobuf(msg)
+    # No current use for this responded data
+{% for dataSource in dataSources %}
+
+
+def {{ dataSource.pyFuncName }}(**kwargs): # Uses {{ dataSource.request.pyPackage }}.{{ dataSource.request.pyStructType }}
+    {{ dataSource.request.varName }} = {{ dataSource.request.pyPackage }}.{{ dataSource.request.pyStructType }}()
+    protobufHelper.dict_to_protobuf(kwargs, {{ dataSource.request.varName }})
+    if not {{ dataSource.request.varName }}.IsInitialized():
+        raise RuntimeError("Message not fully initialized!")
+    socket = SOCKETS["{{ dataSource.socketName }}"]
+    data = socket.SendProtobuf({{ dataSource.request.varName }})
+    {{ dataSource.provide.varName }} = {{ dataSource.provide.pyPackage }}.{{ dataSource.provide.pyStructType }}()
+    {{ dataSource.provide.varName }}.ParseFromString(data)
+    return protobufHelper.protobuf_to_dict({{ dataSource.provide.varName }})
+{% endfor %}
+
+def MakeSocket(addr):
+    poller = zmq.Poller()
+    sock = context.socket(zmq.REQ)
+    sock.connect(addr)
+    poller.register(sock, zmq.POLLIN)
+
+    return sock, poller
+
+class TimeoutSocket(object):
+    def __init__(self, addr, resetFunc):
+        self.addr = addr
+        self.resetFunc = resetFunc
+        self.sock, self.poller = MakeSocket(self.addr)
+
+    def SendProtobuf(self, protobuf):
+        data = protobuf.SerializeToString()
+        needsToReset = False
+        curSock, curPoller = self.sock, self.poller
+        retData = None
+        for i in xrange(4):
+            curSock.send(data)
+            retData = curPoller.poll(1000)
+            if retData:
+                break
+            else:
+                needsToReset = True
+                self.sock, self.poller = None, None
+                curSock, curPoller = MakeSocket(self.addr)
+        if needsToReset:
+            print "Resetingg socket! Did I Get the data?", bool(retData)
+            self.resetFunc()
+        if not retData:
+            raise RuntimeError("Socket error!")
+        return curSock.recv()
+
+
+def ResetSockets():
+    SOCKETS.clear()
+
+    if useTCP:
+        SOCKETS["systemRequest"] = TimeoutSocket("tcp://127.0.0.1:60001", ResetSockets)
+        SOCKETS["setTimeScale"] = TimeoutSocket("tcp://127.0.0.1:60002", ResetSockets)
+        SOCKETS["setLogLevel"] = TimeoutSocket("tcp://127.0.0.1:60003", ResetSockets)
+{% for dataSource in dataSources %}
+        SOCKETS["{{ dataSource.socketName }}"] = TimeoutSocket("{{ dataSource.tcpExternalTransport }}", ResetSockets)
+{% endfor %}
+    else:
+        SOCKETS["systemRequest"] = TimeoutSocket("ipc://systemRequest", ResetSockets)
+        SOCKETS["setTimeScale"] = TimeoutSocket("ipc://setTimeScale", ResetSockets)
+        SOCKETS["setLogLevel"] = TimeoutSocket("ipc://setLogLevel", ResetSockets)
+{% for dataSource in dataSources %}
+        SOCKETS["{{ dataSource.socketName }}"] = TimeoutSocket("{{ dataSource.externalTransport }}", ResetSockets)
+{% endfor %}
+
+ResetSockets()
+
+

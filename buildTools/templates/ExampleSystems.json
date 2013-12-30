@@ -1,0 +1,42 @@
+{
+    "Comments": [
+        "Leave systems blank on the system manager to use all available systems"
+        ],
+    "SystemManagers":[
+        {
+            "managerName": "TestSystemManager",
+            "defaultTickTime": 0.2
+        },
+        {
+            "managerName": "Example",
+            "defaultTickTime": 0.2,
+            "systems":[
+                "TestSystem",
+                "AnotherSystem"
+            ]
+        }
+        ],
+    "Systems": [
+        {
+            "systemName": "TestSystem",
+            "componentName": "TestComponent",
+            "receives": [
+                ["electionFinished", "OfficeElectionMsg"]
+                ],
+            "friendComponents": [
+                ["NameComponent", "NameSystem"],
+                ["HeldByComponent", "HeldBySystem"]
+                ],
+            "componentData": [
+                ["entityRef", "someEntity"],
+                ["entityRefSet", "someEntities"],
+                ["float", "x"],
+                ["int", "y"],
+                ["string", "myName"]
+                ],
+            "functions": [
+                "void GetAllSomething()"
+            ]
+        }
+    ]
+}

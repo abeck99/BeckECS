@@ -1,0 +1,11 @@
+.DS_Store
+build/
+.waf*
+.lock-waf_darwin_build
+*.pyc
+.lock-waf*
+waf*
+callgrind.*
+*.log
+*.config
+EntitySystem/Autogen/

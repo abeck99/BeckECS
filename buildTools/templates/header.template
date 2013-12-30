@@ -1,0 +1,322 @@
+#ifndef {{ macroName }}
+#define {{ macroName }}
+
+#include "defines.h"
+{% for include in includes %}
+#include {{ include }}
+{% endfor %}
+
+{% for forward in forwards %}
+class {{ forward }};
+{% endfor %}
+
+class {{ componentName }} : public Component, public Components::{{ componentName }} {
+public:
+    {{ componentName }}(unsigned long timestamp)
+    : Component(timestamp)
+    , Components::{{ componentName }}()
+    {}
+
+    static const char* componentName()
+    {
+        return "{{ componentName }}";
+    }
+};
+
+
+class {{ systemName }} : public {{ systemType }}ComponentSystem {
+public:
+    {{ systemName }}()
+    : {{ systemType }}ComponentSystem()
+{% for friendSystem in friendSystems %}
+    , {{ friendSystem.varName }}(NULL)
+{% endfor %}
+{% for var in vars %}
+{% if var.default %}
+    , {{ var.name }}({{ var.default }})
+{% endif %}
+{% endfor %}
+    {}
+
+    virtual std::string SystemName()
+    {
+        return "{{ systemName }}";
+    }
+
+    // Functions that need to be implemented
+{% if systemType == "RunLoop" %}
+    virtual void RunGameLogic(const float& timePassed);
+{% else %}
+    virtual void RunGameLogic();
+{% endif %}
+{% for function in functions %}
+    {{ function.def }};
+{% endfor %}
+{% for receive in receives %}
+{% if receive.isProtobuf %}
+    // Read from {{ receive.msgVarName }}
+    void {{ receive.funcName }}();
+{% else %}
+    void {{ receive.funcName }}({{ receive.structType }}& recMsg);
+{% endif %}
+{% endfor %}
+{% for dataSource in dataSources %}
+    // Response is required, read from {{ dataSource.request.varName }} and fill in {{ dataSource.provide.varName }} to reply
+    void {{ dataSource.funcName }}();
+{% endfor %}
+
+{% if hasBindedSockets %}
+    virtual void CreateBindSockets()
+    {
+        {{ systemType }}ComponentSystem::CreateBindSockets();
+
+{% for send in sends %}
+{% if send.binded %} {# Binded send socket represents 1 to N #}
+        {{ send.varName }} = GetSocketSendMessage1ToN("{{ send.internalTransportType }}{{ send.socketName }}");
+{% endif %}
+{% endfor %}
+{% for receive in receives %}
+{% if receive.binded %} {# Binded receive socket represents N to 1 #}   
+        {{ receive.varName }} = GetSocketReceiveMessageNTo1("{{ receive.internalTransportType }}{{ receive.socketName }}");
+{% endif %}
+{% endfor %}
+{% for dataSource in dataSources %} {# Datasource sockets are always 1 to 1 with client, and always bind #}
+#ifdef USE_TCP
+        {{ dataSource.varName }} = GetSocketProvideMessage("{{ dataSource.tcpExternalTransport }}");
+#else
+        {{ dataSource.varName }} = GetSocketProvideMessage("{{ dataSource.externalTransport }}");
+#endif
+        PrepSocket({{ dataSource.varName }}, "{{ dataSource.internalTransportType }}{{ dataSource.socketName }}");
+{% endfor %}
+    }
+
+{% endif %}
+{% if hasConnectedSockets %}
+    virtual void CreateConnectSockets()
+    {
+        {{ systemType }}ComponentSystem::CreateConnectSockets();
+
+{% for send in sends %}
+{% if not send.binded %} {# Connected send socket represents N to 1 #}
+        {{ send.varName }} = GetSocketSendMessageNTo1("{{ send.internalTransportType }}{{ send.socketName }}");
+{% endif %}
+{% endfor %}
+{% for receive in receives %}
+{% if not receive.binded %} {# Connected receive socket represents 1 to N #}
+        {{ receive.varName }} = GetSocketReceiveMessage1ToN("{{ receive.internalTransportType }}{{ receive.socketName }}");
+{% endif %}
+{% endfor %}
+{% for request in requests %}
+        {{ request.varName }} = GetSocketRequestMessage("{{ request.internalTransportType }}{{ request.socketName }}");
+{% endfor %}
+    }
+
+{% endif %}
+{% if hasSockets %}
+
+    virtual int GetNumberReceiveSockets()
+    {
+        return {{ systemType }}ComponentSystem::GetNumberReceiveSockets() + {{ len(receives, dataSources) }};
+    }
+
+    virtual zmq_pollitem_t* FillPollInformation(zmq_pollitem_t* pollItems)
+    {
+        pollItems = {{ systemType }}ComponentSystem::FillPollInformation(pollItems);
+{% for receive in receives %}
+        pollItems->socket = *((void**) {{ receive.varName }});
+        pollItems++;
+{% endfor %}
+{% for dataSource in dataSources %}
+        pollItems->socket = *((void**) {{ dataSource.varName }});
+        pollItems++;
+{% endfor %}
+
+        return pollItems;
+    }
+
+    virtual zmq_pollitem_t* ProcessEvents(zmq_pollitem_t* pollItems)
+    {
+        pollItems = {{ systemType }}ComponentSystem::ProcessEvents(pollItems);
+
+{% for receive in receives %}
+
+        if ( pollItems->revents & ZMQ_POLLIN )
+        {
+{% if receive.isProtobuf %}
+            ReceiveProtobufMessage<{{ receive.structType }}>({{ receive.varName }}, &{{ receive.msgVarName }});
+            {{ receive.funcName }}();
+{% else %}
+            {{ receive.structType }} msg;
+            ReceiveMessage<{{ receive.structType }}>({{ receive.varName }}, &msg);
+            {{ receive.funcName }}( msg );
+{% endif %}
+            didMessage = true;
+        }
+        pollItems++;
+{% endfor %}
+{% for dataSource in dataSources %}
+
+        if ( pollItems->revents & ZMQ_POLLIN )
+        {
+            CheckForRequest<{{ dataSource.request.structType }}>({{ dataSource.varName }}, &{{ dataSource.request.varName }});
+            {{ dataSource.provide.varName }}.Clear();
+            {{ dataSource.funcName }}();
+            ProvideResponse<{{ dataSource.provide.structType }}>({{ dataSource.varName }}, &{{ dataSource.provide.varName }});
+            didMessage = true;
+        }
+        pollItems++;
+{% endfor %}
+
+        return pollItems;
+    }
+
+    virtual void CheckSocketsAndDestroy()
+    {
+        {{ systemType }}ComponentSystem::CheckSocketsAndDestroy();
+{% for receive in receives %}
+
+        {
+{% if receive.isProtobuf %}
+            while ( ReceiveProtobufMessage<{{ receive.structType }}>({{ receive.varName }}, &{{ receive.msgVarName }}) )
+            {
+{% else %}
+            {{ receive.structType }} msg;
+            while ( ReceiveMessage<{{ receive.structType }}>({{ receive.varName }}, &msg) )
+            {
+{% endif %}
+                printf("[ERROR] {{ systemName }}: Received {{ receive.socketName }} that was swallowed by shutdown!\n");
+            }
+            DestroySocket({{ receive.varName }});
+            {{ receive.varName }} = NULL;
+        }
+{% endfor %}
+{% for dataSource in dataSources %}
+
+        {
+            while ( CheckForRequest<{{ dataSource.request.structType }}>({{ dataSource.varName }}, &{{ dataSource.request.varName }}) )
+            {
+                printf("[ERROR] {{ systemName }}: Received {{ dataSource.socketName }} during shutdown, still responding!\n");
+                {{ dataSource.funcName }}();
+                ProvideResponse<{{ dataSource.provide.structType }}>({{ dataSource.varName }}, &{{ dataSource.provide.varName }});
+            }
+
+            DestroySocket({{ dataSource.varName }});
+            {{ dataSource.varName }} = NULL;
+        }
+{% endfor %}
+{% for send in sends %}
+
+        DestroySocket({{ send.varName }});
+        {{ send.varName }} = NULL;
+{% endfor %}
+{% for request in requests %}
+
+        DestroySocket({{ request.varName }});
+        {{ request.varName }} = NULL;
+{% endfor %}
+    }
+
+{% endif %}
+{% for send in sends %}
+{% if send.isProtobuf %}
+    // Sends the message {{ send.msgVarName }}
+    inline void {{ send.funcName }}()
+    {
+        SendProtobufMessage<{{ send.structType }}>({{ send.varName }}, &{{ send.msgVarName }});
+        didMessage = true;
+    }
+{% else %}
+    inline void {{ send.funcName }}({{ send.structType }}& msg)
+    {
+        SendMessage<{{ send.structType }}>({{ send.varName }}, &msg);
+        didMessage = true;
+    }
+{% endif %}
+
+{% endfor %}
+{% for request in requests %}
+    // Fill {{ request.request.varName }} before calling, check {{ request.provide.varName }} to get response
+    inline void {{ request.funcName }}()
+    {
+        RequestData<{{ request.request.structType }}, {{ request.provide.structType }}>({{ request.varName }}, &{{ request.request.varName }}, &{{ request.provide.varName }});
+    }
+
+{% endfor %}
+{% if hasEntityRef %}
+    virtual void StripEntityReferences(EntityID entityID)
+    {
+        MAP_TYPE<EntityID, {{ componentName }}*>& components = GetComponentMap<{{ componentName }}>();
+
+        for( MAP_TYPE<EntityID, {{ componentName }}*>::iterator i = components.begin(); i != components.end(); ++i )
+        {
+            bool didClear = false;
+            {{ componentName }}*& comp = (*i).second;
+{% for data in ComponentData %}
+{% if data.type == "entityRef" %}
+
+            if ( comp->{{ data.name }} == entityID )
+            {
+                comp->{{ data.name }} = NULL;
+                didClear = true; 
+            }
+{% endif %}
+{% if data.type == "entityRefSet" %}
+
+            didClear = comp->{{ data.name }}.erase(entityID) > 0 || didClear;
+{% endif %}
+{% endfor %}
+
+            if ( didClear )
+                EntityRefRemoved((*i).first, entityID);
+        }
+    }
+
+{% endif %}
+{% if friendSystems %}
+    virtual void GetFriends(SystemManager* interface)
+    {
+        {{ systemType }}ComponentSystem::GetFriends(interface);
+
+{% for friendSystem in friendSystems %}
+        {{ friendSystem.varName }} = ({{ friendSystem.systemName }}*) interface->GetComponentSystem(std::string("{{ friendSystem.systemName }}"));
+{% endfor %}
+    }
+
+{% endif %}
+protected:
+    virtual ComponentStore_* CreateComponentStore();
+
+public:
+{% for var in vars %}
+    {{ var.type }} {{ var.name }};
+{% endfor %}
+{% for friendSystem in friendSystems %}
+    {{ friendSystem.systemName }}* {{ friendSystem.varName }};
+{% endfor %}
+{% for receive in receives %}
+    void* {{ receive.varName }};
+{% if receive.isProtobuf %}
+    {{ receive.structType }} {{ receive.msgVarName }};
+{% endif %}
+{% endfor %}
+{% for send in sends %}
+    void* {{ send.varName }};
+{% if send.isProtobuf %}
+    {{ send.structType }} {{ send.msgVarName }};
+{% endif %}
+{% endfor %}
+{% for dataSource in dataSources %}
+    void* {{ dataSource.varName }};
+    {{ dataSource.request.structType }} {{ dataSource.request.varName }};
+    {{ dataSource.provide.structType }} {{ dataSource.provide.varName }};
+{% endfor %}
+{% for request in requests %}
+    void* {{ request.varName }};
+    {{ request.request.structType }} {{ request.request.varName }};
+    {{ request.provide.structType }} {{ request.provide.varName }};
+{% endfor %}
+};
+
+extern "C" {{ systemType }}ComponentSystem* GetNew{{ systemName }}();
+
+#endif

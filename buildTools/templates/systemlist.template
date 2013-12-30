@@ -1,0 +1,11 @@
+{% for system in systems %}
+{{ system }}.cpp
+{% endfor %}
+{% for metaSystem in metaSystems %}
+{% for systemName in metaSystem.systems %}
+{{ systemName }}.cpp
+{% endfor %}
+{% endfor %}
+{% for dynamicFile in dynamicFiles %}
+{{ dynamicFile[1] }}.cpp
+{% endfor %}

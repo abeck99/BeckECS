@@ -1,0 +1,23 @@
+package Entity;
+
+message ComponentData
+{
+    required string name = 1;
+    required bytes data = 2;
+}
+
+message Entity
+{
+    required uint64 entityID = 1;
+    repeated ComponentData components = 2;
+}
+
+message Entities
+{
+    repeated Entity entities = 1;
+}
+
+message CreateEntity
+{
+    repeated ComponentData components = 2;
+}

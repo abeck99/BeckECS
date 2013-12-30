@@ -1,0 +1,47 @@
+#include "{{ systemName }}.h"
+
+ComponentStore_* {{ systemName }}::CreateComponentStore()
+{
+    return new ComponentStore<{{ componentName }}>();
+}
+
+extern "C" {{ systemType }}ComponentSystem* GetNew{{ systemName }}()
+{
+    return new {{ systemName }}();
+}
+
+{% if systemType == "RunLoop" %}
+void {{ systemName }}::RunGameLogic(const float& timePassed)
+{% else %}
+void {{ systemName }}::RunGameLogic()
+{% endif %}
+{
+
+}
+{% for function in functions %}
+
+{{ function.imp }}
+{
+    
+}
+{% endfor %}
+{% for receive in receives %}
+
+{% if receive.isProtobuf %}
+// Read from {{ receive.msgVarName }}
+void {{ systemName }}::{{ receive.funcName }}()
+{% else %}
+void {{ systemName }}::{{ receive.funcName }}({{ receive.structType }}& msg)
+{% endif %}
+{
+    
+}
+{% endfor %}
+{% for dataSource in dataSources %}
+
+// Response is required, read from {{ dataSource.request.varName }} and fill in {{ dataSource.provide.varName }} to reply
+void {{ systemName }}::{{ dataSource.funcName }}()
+{
+
+}
+{% endfor %}

@@ -1,0 +1,92 @@
+#ifndef {{ macroName }}
+#define {{ macroName }}
+
+#include "SystemManager.h"
+
+#ifndef SYSTEM_DYNAMIC_LINKING
+{% for system in systems %}
+#include "{{ system }}.h"
+{% endfor %}
+{% for metaSystem in metaSystems %}
+{% for systemName in metaSystem.systems %}
+#include "{{ systemName }}.h"
+{% endfor %}
+{% endfor %}
+#else
+#include <dlfcn.h>
+#endif
+
+#ifdef SYSTEM_DYNAMIC_LINKING
+typedef ThreadedComponentSystem* (*ThreadedSystemCreator)();
+typedef RunLoopComponentSystem* (*RunLoopSystemCreator)();
+#endif
+
+class {{ systemManagerName }} : public SystemManager
+{
+public:
+    {{ systemManagerName }}(float setRunLoopSleepTime = {{ defaultTickTime }}, double setTimeScale = 0.0)
+    : SystemManager(setRunLoopSleepTime, setTimeScale)
+    {
+    }
+
+#ifdef SYSTEM_DYNAMIC_LINKING
+    virtual bool CreateAllSystems()
+    {
+{% for metaSystem in metaSystems %}
+        {
+            ThreadedMetaSystem* metaSystem = new ThreadedMetaSystem({{ metaSystem.tickTime }}, std::string("{{ metaSystem.name }}"));
+            AddThreadedMetaSystem( metaSystem );
+{% for systemName in metaSystem.systems %}
+            {
+                ThreadedSystemCreator threadedSystem = (ThreadedSystemCreator) dlsym( RTLD_DEFAULT, "GetNew{{ systemName }}");
+                AddThreadedSystem(threadedSystem(), metaSystem);
+            }
+{% endfor %}
+        }
+
+{% endfor %}
+{% for system in systems %}
+        {
+            RunLoopSystemCreator runLoopSystem = (RunLoopSystemCreator) dlsym( RTLD_DEFAULT, "GetNew{{ system }}");
+            AddRunLoopSystem(runLoopSystem());
+        }
+{% endfor %}
+
+        return true;
+    }
+#endif
+
+    virtual bool RegisterAllSystems()
+    {
+#ifdef SYSTEM_DYNAMIC_LINKING
+{% for metaSystem in metaSystems %}
+{% for systemName in metaSystem.systems %}
+        AddDynamicSystem(std::string("{{ cppDir }}{{ systemName }}.cpp"), std::string("{{ systemName }}"));
+{% endfor %}
+{% endfor %}
+{% for system in systems %}
+        AddDynamicSystem(std::string("{{ cppDir }}{{ system }}.cpp"), std::string("{{ system }}"));
+{% endfor %}
+{% for dynamicFile in dynamicFiles %}
+        AddDynamicSystem(std::string("{{ dynamicFile[0] }}"), std::string("{{ dynamicFile[1] }}"));
+{% endfor %}
+#else
+{% for metaSystem in metaSystems %}
+        {
+            ThreadedMetaSystem* metaSystem = new ThreadedMetaSystem({{ metaSystem.tickTime }}, std::string("{{ metaSystem.name }}"));
+            AddThreadedMetaSystem( metaSystem );
+{% for systemName in metaSystem.systems %}
+            ADD_THREADED_SYSTEM({{ systemName }}, metaSystem);
+{% endfor %}
+        }
+
+{% endfor %}
+{% for system in systems %}
+        ADD_SYSTEM({{ system }})
+{% endfor %}
+#endif
+        return true;
+    }
+};
+
+#endif //{{ macroName }}

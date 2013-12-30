@@ -1,0 +1,43 @@
+package BuiltIn;
+
+option optimize_for = SPEED;
+
+message SetTimeScale {
+  required float timeScale = 1;
+}
+
+message SystemRequest {
+    enum RequestType {
+        SHUT_DOWN = 0;
+        SERIALIZED_STATE = 1;
+    }
+
+    required RequestType request = 1;
+}
+
+message SystemResponse {
+    enum ResponseType {
+        SHUT_DOWN_RESPONSE = 0;
+        SERIALIZED_STATE_RESPONSE = 1;
+        LOG_LEVEL_CHANGED = 2;
+        INVALID_REQUEST = 100;
+    }
+
+    enum ShutdownStatus {
+        CLEAN_SHUTDOWN = 0;
+        UNCLEAN_SHUTDOWN = 1;
+    }
+
+    required ResponseType response = 1;
+    optional string state = 2;
+    optional ShutdownStatus shutdownStatus = 3;
+}
+
+message ChangeLogLevel {
+    optional uint32 logLevel = 1;
+    repeated string includeSystems = 2;
+    repeated string excludeSystems = 3;
+}
+
+message EmptyMessage {
+}
