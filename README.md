@@ -14,20 +14,20 @@ The dependencies for running the engine are all very widely used libraries, and 
 ## Dependencies for building
 --------------------
 
-Python 2.7ish:
-    http://www.python.org/
-Jinja2:
-    http://jinja.pocoo.org/
-Waf bin:
-    http://code.google.com/p/waf/
-ZMQ3, built as static lib:
-    https://github.com/zeromq/zeromq3-x
-Google Protobufs:
-    http://code.google.com/p/protobuf/
+*    Python 2.7ish:
+*        http://www.python.org/
+*    Jinja2:
+*        http://jinja.pocoo.org/
+*    Waf bin:
+*        http://code.google.com/p/waf/
+*    ZMQ3, built as static lib:
+*        https://github.com/zeromq/zeromq3-x
+*    Google Protobufs:
+*        http://code.google.com/p/protobuf/
 
 ## Dependencies for running the python client example
 --------------------
-pyzmq, ZMQ Python wrappers 
-    https://github.com/zeromq/pyzmq
-Python Google Protobufs
-    As above, setup.py located in python subdirectory
+*    pyzmq, ZMQ Python wrappers 
+*        https://github.com/zeromq/pyzmq
+*    Python Google Protobufs
+*        As above, setup.py located in python subdirectory

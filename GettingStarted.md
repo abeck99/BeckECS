@@ -26,21 +26,21 @@ All you will see is log output showing the different tick times.
 
 Run Python from a seperate terminal window to see what you can do.
 
-import PyClientExample
-
-# The game starts paused, so if you read example.json and are expecting a hello world output, 
-#       you are not getting it because the time scale is 0, set it with this command
-PyClientExample.SetTimeScale(2) # Twice speed
-
-# The only game exposed function is "TriggerTimer", try running it with timerID=2 and follow the code to
-#       understand the results
-PyClientExample.RequestTriggerTimer(timerID=2)
-
-# Get the current state as a protobuf string:
-PyClientExample.GetState()
-
-# Finally, shutdown
-PyClientExample.Shutdown()
+    import PyClientExample
+    
+    # The game starts paused, so if you read example.json and are expecting a hello world output, 
+    #       you are not getting it because the time scale is 0, set it with this command
+    PyClientExample.SetTimeScale(2) # Twice speed
+    
+    # The only game exposed function is "TriggerTimer", try running it with timerID=2 and follow the code to
+    #       understand the results
+    PyClientExample.RequestTriggerTimer(timerID=2)
+    
+    # Get the current state as a protobuf string:
+    PyClientExample.GetState()
+    
+    # Finally, shutdown
+    PyClientExample.Shutdown()
 
 
 ## Dynamic system recompiling
