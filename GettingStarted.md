@@ -5,19 +5,19 @@
 
 The best way to get started is to take a look at the example project. Here's what you need to get it started:
 
-Make a copy of the "example" subdirectory into the same directory that "EntitySystem" exists in.
-Copy a local waf script to the newly created "example" directory
-Configure waf:
-    OSX (darwin): CXX=clang++ ./waf configure
-    Windows: python waf configure --msvc_targets="x86"
-Resolve any dependencies (protobuf and zmq), and make sure to install the python support to try the python client
-Build:
-    OSX (darwin): ./waf
-    Windows: python python waf
-Run:
-    OSX: ./runExampleGame.sh
-    Windows: python ConvertJsonToBuf.py saves/example.json saves/example.buf
-             build/exampleGame saves/example.buf
+1.    Make a copy of the "example" subdirectory into the same directory that "EntitySystem" exists in.
+2.    Copy a local waf script to the newly created "example" directory
+3.    Configure waf:
+*        OSX (darwin): CXX=clang++ ./waf configure
+*        Windows: python waf configure --msvc_targets="x86"
+4.    Resolve any dependencies (protobuf and zmq), and make sure to install the python support to try the python client
+5.    Build:
+*        OSX (darwin): ./waf
+*        Windows: python python waf
+6.    Run:
+*        OSX: ./runExampleGame.sh
+*        Windows: python ConvertJsonToBuf.py saves/example.json saves/example.buf
+*                 build/exampleGame saves/example.buf
 
 All you will see is log output showing the different tick times.
 
@@ -26,22 +26,23 @@ All you will see is log output showing the different tick times.
 
 Run Python from a seperate terminal window to see what you can do.
 
-    import PyClientExample
-    
-    # The game starts paused, so if you read example.json and are expecting a hello world output, 
-    #       you are not getting it because the time scale is 0, set it with this command
-    PyClientExample.SetTimeScale(2) # Twice speed
-    
-    # The only game exposed function is "TriggerTimer", try running it with timerID=2 and follow the code to
-    #       understand the results
-    PyClientExample.RequestTriggerTimer(timerID=2)
-    
-    # Get the current state as a protobuf string:
-    PyClientExample.GetState()
-    
-    # Finally, shutdown
-    PyClientExample.Shutdown()
+```
+import PyClientExample
 
+# The game starts paused, so if you read example.json and are expecting a hello world output, 
+#       you are not getting it because the time scale is 0, set it with this command
+PyClientExample.SetTimeScale(2) # Twice speed
+
+# The only game exposed function is "TriggerTimer", try running it with timerID=2 and follow the code to
+#       understand the results
+PyClientExample.RequestTriggerTimer(timerID=2)
+
+# Get the current state as a protobuf string:
+PyClientExample.GetState()
+
+# Finally, shutdown
+PyClientExample.Shutdown()
+```
 
 ## Dynamic system recompiling
 
