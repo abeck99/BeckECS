@@ -42,7 +42,7 @@ try:
     PYTHON_OUTPUT_FILES = [
         {
             "forceOverwrite": True,
-            "outDir": "../PyPolitico",
+            "outDir": os.path.join("..", sys.argv[2]),
             "extension": ".py",
             "templateFile": "../../EntitySystem/buildTools/templates/python.template",
         }

@@ -1,0 +1,273 @@
+import os
+import fnmatch
+import subprocess
+import sys
+from contextlib import contextmanager
+import copy
+import sys
+
+top = '.'
+out = 'build'
+APPNAME = 'exampleGame'
+VERSION = '0.0'
+
+CPP_OUT_DIR = "Example"
+PY_OUT_DIR = "PyClientExample"
+
+
+CUR_DIR_NAME = os.path.split(os.getcwd())[1]
+
+# This is used just for dynamic reloading
+SYSTEM_CONFIG_NAME_DIR = "Systems/ExampleSystemManager.config"
+
+# Required SDK
+# ZMQ3 or 4
+# statically linkable google protobufs
+
+
+# ./configure --with-jemalloc-prefix=jem
+# make build_lib_static
+
+# The only good introduction on waf in C++ I have found:
+# ftp://ftp.samba.org/pub/unpacked/waf/docs/book/cprog.txt
+# on OSX I needed clang++
+
+# Windows: python waf configure --msvc_targets="x86"
+# Windows lib headers: dumpbin -headers libzmq-v100-mt-3_2_4.lib
+# Windows uses dll for zmq
+
+# OSX archs: lipo
+
+def options(opt):
+    opt.load('compiler_cxx')
+    opt.add_option('-h', '--only-gen-headers', dest='header', default=False, action='store_true',
+            help='Only perform header generation')
+    opt.add_option('-p', '--only-gen-protos', dest='proto', default=False, action='store_true',
+            help='Only perform protobuf generation')
+    opt.add_option('-b', '--only-build', dest='build', default=False, action='store_true',
+            help='Only perform compile')
+
+    opt.add_option('--dynamic', action='store_true', default=False, help='Configure to use dynamic linking for development (only available on *nix systems)')
+    opt.add_option('--debug', action='store_true', default=False, help='Configure without optimization and with debug symbols')
+
+    opt.add_option('-d', '--dev', action='store_true', default=False, help='Shortcut for dynamic and debug (default dev settings)')
+
+
+def LoadLibs(cnf, libDict):
+    cnf.env.append_value("LibsToUse", libDict.keys())
+
+    for libUseName, libName in libDict.iteritems():
+        cnf.check(compiler='cxx',
+                  lib=libName,
+                  mandatory=True,
+                  uselib_store=libUseName)
+
+
+def winConfig(cnf):
+    cnf.load('compiler_cxx')
+
+    libs = {
+        "ZMQ": "libzmq",
+        "PROTOBUF": "libprotobuf",
+        "MM": "Winmm",
+    }
+
+    LoadLibs(cnf, libs)
+    cnf.env.append_value('CXXFLAGS', [
+        '/EHsc',
+        '/MT',
+        '/D', 'ZMQ_STATIC',
+        '/D', 'USE_TCP',
+        #'/Od',
+        '/O2',
+        '/Ot',
+         '/fp:precise',
+         ])
+    cnf.env.append_value('LINKFLAGS', [
+        '/DEBUG',
+        '/PDB:politicoGame.pdb',
+        '/ignore:4099',
+        ])
+
+
+def darwinConfig(cnf):
+    cnf.load('compiler_cxx')
+
+    libs = {
+        "ZMQ": "zmq",
+        "PROTOBUF": "protobuf",
+    }
+    LoadLibs(cnf, libs)
+
+    cnf.env.useDynamic = cnf.options.dynamic or cnf.options.dev
+
+    baseFlags = ['-stdlib=libstdc++']
+    if cnf.options.debug or cnf.options.dev:
+        baseFlags.extend(['-O0', '-g'])
+    else:
+        baseFlags.extend(['-O3'])
+
+    compileFlags = copy.copy(baseFlags)
+
+    if cnf.env.useDynamic:
+        compileFlags.extend(['-D', 'SYSTEM_DYNAMIC_LINKING'])
+
+    compileFlags.extend(['-o'])
+
+    cnf.env.append_value('CXXFLAGS', compileFlags)
+    cnf.env.append_value('LINKFLAGS', baseFlags)
+
+
+CONFIGS = {
+    "win32": winConfig,
+    "darwin": darwinConfig
+}
+
+
+def configure(cnf):
+    CONFIGS[sys.platform](cnf)
+
+
+def ConvertListToSystemDirs(inList):
+    if sys.platform == "win32":
+        return [s.replace("/", "\\") for s in inList]
+    return inList
+
+
+def RunAllInDir(directory, extensions, runInDir, excludes=[]):
+    excludedList = []
+    for root, dirs, files in os.walk(directory):
+        for extension in extensions:
+            for filename in fnmatch.filter(files, '*.' + extension):
+                fullName = os.path.join(root, filename)
+                if filename not in excludes:
+                    runInDir(fullName)
+                else:
+                    excludedList.append(fullName)
+    return excludedList
+
+
+def ValidateDirectory(dirName):
+    if not os.path.exists(dirName):
+        os.makedirs(dirName)
+
+@contextmanager
+def pushd(newDir):
+    previousDir = os.getcwd()
+    os.chdir(newDir)
+    yield
+    os.chdir(previousDir)
+
+def build(bld):
+    # First build protobufs
+    doEverything = True
+    if bld.options.header or bld.options.proto or bld.options.build:
+        doEverything = False
+    buildProto = doEverything or bld.options.proto
+    buildHeaders = doEverything or bld.options.header
+    buildCompile = doEverything or bld.options.build
+
+    ValidateDirectory("../EntitySystem/Autogen")
+    ValidateDirectory(os.path.join(CPP_OUT_DIR, "Autogen"))
+    ValidateDirectory(os.path.join(CPP_OUT_DIR, "src"))
+    ValidateDirectory(PY_OUT_DIR)
+
+    if buildProto:
+        print "Generating code for protobufs"
+        def BuildProtosInDir(dirName, pyDir):
+            protobufs = []
+            with pushd(dirName):
+                for subDir in ["Messages", "Components"]:
+                    RunAllInDir(subDir, ["proto"], lambda name: protobufs.append(name))
+                    protoBufBuild = ["protoc", "--cpp_out=Autogen", "--python_out=" + pyDir]
+                    protoBufBuild.extend(protobufs)
+                    exitCode = subprocess.call(ConvertListToSystemDirs(protoBufBuild))
+                if exitCode != 0:
+                    print "Proto buffers build step failed in dir " + dirName
+                    sys.exit(1)
+
+        BuildProtosInDir("../EntitySystem", os.path.join("..", os.path.join(CUR_DIR_NAME, PY_OUT_DIR)))
+        BuildProtosInDir(CPP_OUT_DIR, os.path.join("..", PY_OUT_DIR))
+
+    # Then build headers
+    if buildHeaders:
+        if sys.platform == "win32":
+            os.environ["USE_TCP"] = "1"
+        print "Generating code for headers"
+        exitCode = subprocess.call([
+            "python",
+            "../EntitySystem/buildTools/SystemHeaderGen.py",
+            CPP_OUT_DIR,
+            PY_OUT_DIR,
+            ])
+        if exitCode != 0:
+            print "Header generation build step failed!"
+            sys.exit(1)
+
+    # Finally compile
+    if buildCompile:
+        libs = bld.env.LibsToUse
+        print "Compiling with Libs", libs
+
+        systems = []
+        try:
+            if bld.env.useDynamic:
+                systems = [line.strip() for line in open(os.path.join(".", os.path.join(CPP_OUT_DIR, SYSTEM_CONFIG_NAME_DIR))).read().split("\n") if line.strip()]
+        except:
+            pass
+
+        allIncludes = [
+            "../EntitySystem/Autogen",
+            "../EntitySystem/include",
+            "../EntitySystem/Shared/include",
+            "../EntitySystem/Shared/include",
+            "../SDKs/zeromq3-x/include",
+            "../SDKs/protobufs/include",
+            os.path.join(CPP_OUT_DIR, "include"),
+            os.path.join(CPP_OUT_DIR, "Autogen"),
+            ]
+
+        allIncludes = ConvertListToSystemDirs(allIncludes)
+
+        sources = []
+        def CompileAllInDir(directory):
+            return RunAllInDir(directory, ["cpp", "c", "cc"], lambda name: sources.append(name), excludes=systems)
+
+        x = CompileAllInDir("../EntitySystem/Autogen")
+        if len(x) > 0:
+            raise RuntimeError("System file name found in EntitySystem, bad news!")
+
+        x = CompileAllInDir("../EntitySystem/Managers")
+        if len(x) > 0:
+            raise RuntimeError("System file name found in EntitySystem, bad news!")
+
+        x = CompileAllInDir("../EntitySystem/Shared")
+        if len(x) > 0:
+            raise RuntimeError("System file name found in EntitySystem, bad news!")
+
+        x = CompileAllInDir("../EntitySystem/System")
+        if len(x) > 0:
+            raise RuntimeError("System file name found in EntitySystem, bad news!")
+
+        systemFiles = CompileAllInDir(CPP_OUT_DIR)
+
+        bld.program(features=['cxx'],
+            source=ConvertListToSystemDirs(sources),
+            includes=allIncludes,
+            target=APPNAME,
+            use=libs,
+            )
+
+        for systemFile in systemFiles:
+            systemName = os.path.splitext(os.path.split(systemFile)[1])[0]
+
+            extendedLinkFlags = []
+            extendedLinkFlags.extend(["-undefined", "dynamic_lookup"])
+
+            lib = bld.shlib(features=['cxx'],
+                source=systemFile,
+                includes=allIncludes,
+                target=systemName,
+                use=libs,
+                linkflags= extendedLinkFlags + bld.env.LINKFLAGS
+                )

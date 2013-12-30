@@ -1,0 +1,89 @@
+{
+    "Comments": [
+        "System Manger - handles serilaization/deserialzation to/from systems, dynamic code reloading",
+        "                Also is an implicit metasystem for things that run on the main thread",
+        "metaSystems - Groups of systems on seperate threads",
+        "System - Manages a single component type",
+        "   - baseName: Name for the component and system",
+        "   - dataSources: Outward facing RPC (Request/Reply) calls, must use protobufs for communication",
+        "                   dataSources should provide a TCP port number so windows can use it (IPC is used on *nix systems)",
+        "   - requests: Internally use dataSource",
+        "   - sends: Internal only communication, provides no response, can use a struct or protobuf",
+        "   - receives: Internal only communication, provides no response, can use a struct or protobuf",
+        "   - functions: custom functions to use in header",
+        "   - vars: custom vars to use in header",
+        "   - includes: custom files to include",
+        "   - friendSystems: provides a direct reference to another system, only available on systems sharing a metasystem",
+        "                       memory can be directly shared using friendSystems",
+
+
+        "Even though this is all in one file, you can split everything into seperate files and it gets pulled into one json",
+        "   Lists from different files get appended together"
+    ],
+    "SystemManagers":[
+    {
+        "managerName": "ExampleSystemManager",
+        "defaultTickTime": 0.5,
+        "metaSystems": [
+            {
+                "name": "Thread1",
+                "tickTime": 10.0,
+                "systems": [
+                    "PrintStringSystem",
+                    "TimerOwnerSystem"
+                    ]
+            },
+            {
+                "name": "Thread2",
+                "tickTime": 5.0,
+                "systems": [
+                    "PrintIntSystem"
+                    ]
+                }
+            ]
+        }
+    ],
+    "Systems": [
+        {
+            "baseName": "Timer",
+            "dataSources": [
+                ["triggerTimer", "TriggerTimerMsg", "TriggerResultMsg"]
+                ],
+            "sends": [
+                ["timerFired", "timerFiredStruct"]
+                ]
+        },
+        {
+            "baseName": "PrintString",
+            "receives": [
+                ["timerFired", "timerFiredStruct"]
+                ],
+            "friendSystems": [
+                "TimerOwnerSystem"
+                ]
+        },
+        {
+            "baseName": "TimerOwner",
+            "includes": [
+                "<map>"
+                ],
+            "functions": [
+                "virtual void ComponentAdded(EntityID entityID, Component* component)",
+                "virtual void ComponentRemoved(EntityID entityID, Component* removedComponent)",
+                "EntityID OwnerOfTimer(EntityID timerID)"
+                ],
+            "vars": [
+                ["std::map<EntityID, EntityID>", "timerIDtoOwnerID", ""]
+                ]
+        },
+        {
+            "baseName": "PrintInt",
+            "receives": [
+                ["timerFired", "timerFiredStruct"]
+                ]
+        }
+    ],
+    "tcpSockPorts": {
+        "triggerTimer": 60101
+    }
+}

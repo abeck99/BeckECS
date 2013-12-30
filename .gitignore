@@ -9,3 +9,6 @@ callgrind.*
 *.log
 *.config
 EntitySystem/Autogen/
+example/PyClientExample/
+!example/PyClientExample/Messages/protobufHelper.py
+!example/PyClientExample/Components/__init__.py

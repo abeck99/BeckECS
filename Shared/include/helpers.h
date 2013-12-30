@@ -6,8 +6,14 @@
 #include <Mmsystem.h>
 #endif
 
+#define EntityID unsigned long long
+
+#define MAP_TYPE std::map
+#define MAP_TYPE_HEADER <map>
+
 #include "defines.h"
 
+#include MAP_TYPE_HEADER
 #include <assert.h>
 #include <cstdlib>
 #include <stdio.h>
@@ -19,6 +25,14 @@
 #endif
 #include <signal.h>
 #include <stdlib.h>
+
+
+#define DEBUG_ASSERT
+
+template <typename K, typename V>
+bool exists_in(MAP_TYPE<K,V> const& haystack, K const& needle) {
+    return haystack.find(needle) != haystack.end();
+}  
 
 static unsigned long
 clockTimeMS (void)
@@ -84,5 +98,50 @@ void breakHere();
 #else
 #   define ASSERT(condition, message)
 #endif
+
+#define INTERNAL_SOCKET_TYPE "inproc://"
+
+#define INTERNAL_SOCKET_NAME(socketName) "" INTERNAL_SOCKET_TYPE #socketName ""
+#define EXTERNAL_SOCKET_NAME(socketName) "" EXTERNAL_SOCKET_TYPE #socketName ""
+
+#define SUSPEND_SYSTEMS_MSG INTERNAL_SOCKET_NAME(suspendSystems)
+#define RESUME_SYSTEMS_MSG INTERNAL_SOCKET_NAME(resumeSystems)
+#define SUSPEND_SYSTEMS_COMPLETE_MSG INTERNAL_SOCKET_NAME(suspendCompleteSystems)
+#define SHUTDOWN_SYSTEMS_COMPLETE_MSG INTERNAL_SOCKET_NAME(shutdownCompleteSystems)
+#define LOG_MSG_NAME INTERNAL_SOCKET_NAME(log)
+#define CREATE_ENTITY INTERNAL_SOCKET_NAME(createEntity)
+#define DESTROY_ENTITY INTERNAL_SOCKET_NAME(destroyEntity)
+#define ENTITY_DESTROYED INTERNAL_SOCKET_NAME(entityDestroyed)
+#define NEW_PLAYER_ID INTERNAL_SOCKET_NAME(newPlayerID)
+#define COMPONENT_ADDED_MSG INTERNAL_SOCKET_TYPE
+
+
+
+struct ShutdownMsg
+{
+    bool isFullShutdown;
+};
+
+
+// No struct for CREATE_ENTITY
+#define CREATE_ENTITY_MAX_SIZE 1024
+
+struct DestroyEntityMsg
+{
+    unsigned long timestamp;
+    EntityID entityID;
+};
+
+struct ComponentAddedMsg
+{
+    int entityID;
+    unsigned long timestamp;
+    char serializedData[CREATE_ENTITY_MAX_SIZE];
+};
+
+struct PlayerID
+{
+    EntityID newPlayerID;
+};
 
 #endif // HELPERS_H__

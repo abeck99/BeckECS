@@ -17,36 +17,6 @@ useTCP = bool({{ useTCP }})
 SOCKETS = {
     }
 
-INDIVIDUAL_ENTITY_TYPE = 0
-OFFICE_ENTITIY_TYPE = 1
-LOCATION_ENTITY_TYPE = 2
-GOVERNMENT_ENTITY_TYPE = 3
-GLOBAL_ENTITY_TYPE = 4
-ACTION_ENTITY_TYPE = 5
-
-
-PRESTIGE_STAT = 1
-MONEY_STAT = 2
-STAT_NAMES = {
-    PRESTIGE_STAT: "Prestige",
-    MONEY_STAT: "Money",
-}
-
-DAILY_OCCURANCE_TYPE = 1
-WEEKLY_OCCURANCE_TYPE = 2
-MONTHLY_OCCURANCE_TYPE = 3
-OCCURANCE_NAMES = {
-    DAILY_OCCURANCE_TYPE: "Daily",
-    WEEKLY_OCCURANCE_TYPE: "Weekly",
-    MONTHLY_OCCURANCE_TYPE: "Monthly",
-}
-
-def GetStatName(statType):
-    return STAT_NAMES[statType]
-
-def GetOccuranceName(occuranceType):
-    return OCCURANCE_NAMES[occuranceType]
-
 def GetState():
     msg = basics_pb2.SystemRequest()
     msg.request = msg.SERIALIZED_STATE

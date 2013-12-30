@@ -1,0 +1,32 @@
+{
+    "1": {
+        "TimerComponent": {
+            "curTime": 0,
+            "triggerTime": 20,
+            "triggerEntityID": 2,
+            "repeats": true
+        }
+    },
+    "2": {
+        "TimerComponent": {
+            "curTime": 20,
+            "triggerTime": 20,
+            "triggerEntityID": 3,
+            "repeats": false
+        },
+        "PrintStringComponent": {
+            "displayMessage": "Hello World!"
+        }
+    },
+    "3": {
+        "TimerOwnerComponent": {
+            "timerID": 2
+        },
+        "PrintStringComponent": {
+            "displayMessage": "This was printed from a trigger from the client! Also I will print 100."
+        },
+        "PrintIntComponent": {
+            "displayInt": 100
+        }
+    }
+}

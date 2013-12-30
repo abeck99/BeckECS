@@ -1,0 +1,19 @@
+package TimerRequests;
+
+// These can split across multiple files, instead of in one file as in this example
+
+message TriggerTimerMsg
+{
+    required uint64 timerID = 1;
+}
+
+message TriggerResultMsg
+{
+    enum TriggerFailureReason {
+        TRIGGER_DOES_NOT_EXIST = 1;
+        TRIGGER_ALREADY_RUNNING = 2;
+    }
+
+    required bool didTrigger = 1;
+    optional TriggerFailureReason failureReason = 2;
+}

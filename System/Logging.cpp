@@ -1,7 +1,6 @@
 #include "helpers.h"
 #include "Logging.h"
 #include "Messaging.h"
-#include "NameSystem.h"
 
 void LogStream::CreateConnectSocket(const char* systemName, char priority)
 {

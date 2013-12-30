@@ -1,0 +1,24 @@
+package Components;
+
+message TimerComponent
+{
+    required double curTime = 1;
+    required double triggerTime = 2;
+    required uint64 triggerEntityID = 3;
+    optional bool repeats = 4 [default = true];
+}
+
+message PrintStringComponent
+{
+    required string displayMessage = 1;
+}
+
+message PrintIntComponent
+{
+    required uint32 displayInt = 1;
+}
+
+message TimerOwnerComponent
+{
+    required uint64 timerID = 1;
+}
